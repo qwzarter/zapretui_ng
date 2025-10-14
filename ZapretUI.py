@@ -1,373 +1,575 @@
-import os
 import sys
+import os
 import json
-import subprocess
-import threading
-import time
-from pathlib import Path
 import ctypes
-import customtkinter as ctk
-from tkinter import messagebox
-from PIL import Image
-import tkinter as tk
+import time
+import subprocess
+from pathlib import Path
 
-class CustomDropdown(ctk.CTkFrame):
-    def __init__(self, master, values, variable=None, width=325, font=None, bold_font=None, **kwargs):
-        super().__init__(master, fg_color="#1E2030", corner_radius=10, **kwargs)
-        self.font = font or ctk.CTkFont(family="Segoe UI", size=14)
-        self.bold_font = bold_font or ctk.CTkFont(family="Segoe UI", size=16, weight="bold")
-        self.values = values
-        self.variable = variable or ctk.StringVar(value=values[0])
-        self.width = width
-        self.configure(width=self.width, height=44, cursor="hand2")
+from PySide6.QtCore import Qt, QThread, Signal, QRectF, Property, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QIcon, QFont, QPalette, QColor, QPainter, QBrush
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QComboBox, QMessageBox, QSizePolicy, QCheckBox,
+    QGraphicsOpacityEffect, QGraphicsColorizeEffect, QGraphicsDropShadowEffect
+)
 
-        self.label = ctk.CTkLabel(
-            self, text=self.variable.get(),
-            font=self.font,
-            text_color="#E6E9F0", anchor="w"
-        )
-        self.label.place(relx=0.05, rely=0.5, anchor="w")
+class ToggleSwitch(QCheckBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(50, 28)
 
-        self.arrow = ctk.CTkLabel(
-            self, text="▾",
-            font=self.font,
-            text_color="#2D5BE3"
-        )
-        self.arrow.place(relx=0.95, rely=0.5, anchor="e")
+        self._handle_x = 3
+        self._anim = QPropertyAnimation(self, b"handle_position")
+        self._anim.setDuration(150)
+        self._anim.setEasingCurve(QEasingCurve.InOutQuad)
 
-        self._bound = True
-        for w in (self, self.label, self.arrow):
-            w.bind("<Button-1>", self.toggle_dropdown)
+        self._locked = False
 
-        self.dropdown = None
-        self.master.bind("<Button-1>", self._click_outside, add="+")
+        self.stateChanged.connect(self.start_animation)
 
-        try:
-            self.variable.trace_add("write", self._on_variable_change)
-        except Exception:
-            try:
-                self.variable.trace("w", lambda *a: self._on_variable_change())
-            except Exception:
-                pass
+    def setLocked(self, locked: bool):
+        self._locked = bool(locked)
+        self.update()
 
-    def _on_variable_change(self, *args):
-        try:
-            self.label.configure(text=self.variable.get())
-        except Exception:
-            pass
+    def get_handle_position(self):
+        return self._handle_x
 
-    def toggle_dropdown(self, event=None):
-        if not self._bound:
+    def set_handle_position(self, x):
+        self._handle_x = x
+        self.update()
+
+    handle_position = Property(float, get_handle_position, set_handle_position)
+
+    def mousePressEvent(self, event):
+        if self._locked:
+            event.ignore()
             return
-        if self.dropdown and self.dropdown.winfo_exists():
-            self.close_dropdown()
+        if event.button() == Qt.LeftButton:
+            self.toggle()
         else:
-            self.open_dropdown()
+            super().mousePressEvent(event)
 
-    def open_dropdown(self):
-        if self.dropdown and self.dropdown.winfo_exists():
-            self.close_dropdown()
+    def start_animation(self, state):
+        start = 25 if not self.isChecked() else 3
+        end = 3 if not self.isChecked() else 25
+        self._anim.stop()
+        self._anim.setStartValue(start)
+        self._anim.setEndValue(end)
+        self._anim.start()
 
-        self.update_idletasks()
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
 
-        parent = self.winfo_toplevel()
+        if self.isChecked():
+            base_color = QColor("#16A34A")
+        else:
+            base_color = QColor("#4B5563")
 
-        abs_x = self.winfo_rootx()
-        abs_y = self.winfo_rooty() + self.winfo_height() + 4
+        if self._locked:
+            base_color = base_color.lighter(60)
 
-        x_real = abs_x - parent.winfo_rootx()
-        y_real = abs_y - parent.winfo_rooty()
+        painter.setBrush(base_color)
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(QRectF(0, 0, 50, 28), 14, 14)
 
-        item_height = 38
-        desired_visible_rows = 6
-        pad = 12
-        inner_pad = 6
+        knob_color = QColor("#FFFFFF")
+        if self._locked:
+            knob_color = QColor(180, 180, 180)
+        painter.setBrush(QBrush(knob_color))
+        painter.drawEllipse(QRectF(self._handle_x, 3, 22, 22))
 
-        screen_h = parent.winfo_screenheight()
-        space_below = screen_h - (self.winfo_rooty() + self.winfo_height())
-        max_rows_by_space = max(1, space_below // item_height)
-        visible_rows = min(desired_visible_rows, max_rows_by_space)
+        if self._locked:
+            painter.setBrush(QColor(0, 0, 0, 60))
+            painter.drawRoundedRect(QRectF(0, 0, 50, 28), 14, 14)
 
-        if visible_rows < 3:
-            space_above = self.winfo_rooty() - parent.winfo_rooty()
-            rows_above = max(1, space_above // item_height)
-            if rows_above >= 3:
-                y_real = (self.winfo_rooty() - parent.winfo_rooty()) - (item_height * min(desired_visible_rows, rows_above)) - 6
-                visible_rows = min(desired_visible_rows, rows_above)
-            else:
-                visible_rows = max(1, visible_rows)
+class WorkerThread(QThread):
+    output = Signal(str)
+    finished = Signal()
 
-        dropdown_width = self.width
-        dropdown_height = item_height * visible_rows + (pad * 2)
+    def __init__(self, cmd, cwd):
+        super().__init__()
+        self.cmd = cmd
+        self.cwd = cwd
+        self.process = None
+        self.running = True
 
-        screen_w = parent.winfo_screenwidth()
-        if (x_real + dropdown_width) > screen_w:
-            x_real = max(8, screen_w - dropdown_width - 8)
-        if (y_real + dropdown_height) > screen_h:
-            y_real = max(8, screen_h - dropdown_height - 8)
-
-        self.dropdown = ctk.CTkFrame(
-            parent,
-            fg_color="#1A1F3A",
-            corner_radius=12,
-            width=dropdown_width,
-            height=dropdown_height
-        )
-        self.dropdown.place(x=x_real, y=y_real)
-
-        buffer_frame = ctk.CTkFrame(
-            self.dropdown,
-            fg_color="#1A1F3A",
-            corner_radius=12,
-            width=dropdown_width - (pad),
-            height=dropdown_height - (pad)
-        )
-        buffer_frame.place(x=pad//2, y=pad//2)
-
-        scroll_w = dropdown_width - (pad + 8)
-        scroll_h = dropdown_height - (pad + 8)
-
-        scroll_area = ctk.CTkScrollableFrame(
-            buffer_frame,
-            fg_color="#1A1F3A",
-            corner_radius=0,
-            width=scroll_w,
-            height=scroll_h
-        )
-        scroll_area.place(x=(pad//2) - 2, y=(pad//2) - 2)
-
-        self.option_buttons = []
-        for val in self.values:
-            btn = ctk.CTkButton(
-                scroll_area,
-                text=val,
-                fg_color="transparent",
-                hover_color="#2E4DB7",
-                text_color="#E9ECF5",
-                height=34,
-                corner_radius=6,
-                anchor="w",
-                font=self.font,
-                command=lambda v=val: self.select_value(v)
-            )
-            btn.pack(fill="x", padx=inner_pad, pady=2)
-            self.option_buttons.append(btn)
-
-        self.dropdown.lift()
+    def run(self):
         try:
-            self.dropdown.configure(border_color="#2B3A64", border_width=1)
-        except Exception:
-            pass
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            self.process = subprocess.Popen(
+                self.cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                creationflags=creationflags,
+                cwd=self.cwd
+            )
+            for line in iter(self.process.stdout.readline, ''):
+                if not self.running:
+                    break
+                if line:
+                    self.output.emit(line.rstrip())
+            if self.process:
+                self.process.wait()
+        except Exception as e:
+            self.output.emit(f"Ошибка: {e}")
+        self.finished.emit()
 
-    def select_value(self, value):
-        self.variable.set(value)
-        self.label.configure(text=value)
-        self.close_dropdown()
-
-    def close_dropdown(self):
-        if self.dropdown and self.dropdown.winfo_exists():
-            self.dropdown.destroy()
-            self.dropdown = None
-
-    def _click_outside(self, event):
-        if not self.dropdown or not self.dropdown.winfo_exists():
-            return
-        x1, y1 = self.dropdown.winfo_rootx(), self.dropdown.winfo_rooty()
-        x2 = x1 + self.dropdown.winfo_width()
-        y2 = y1 + self.dropdown.winfo_height()
-        if not (x1 <= event.x_root <= x2 and y1 <= event.y_root <= y2):
-            self.close_dropdown()
-
-    def disable(self):
-        if self._bound:
-            for w in (self, self.label, self.arrow):
+    def stop(self):
+        try:
+            if self.process and self.process.poll() is None:
                 try:
-                    w.unbind("<Button-1>")
-                    w.configure(cursor="no")
+                    self.process.terminate()
                 except Exception:
                     pass
-            try:
-                self.configure(fg_color="#2A2C36", cursor="no")
-                self.label.configure(text_color="#AAB0BB")
-                self.arrow.configure(text_color="#7A85B8")
-            except Exception:
-                pass
-            self._bound = False
+                time.sleep(1)
+                if self.process.poll() is None:
+                    subprocess.run(["taskkill", "/f", "/im", "winws.exe"], capture_output=True)
+        except Exception as e:
+            self.output.emit(f"Ошибка остановки: {e}")
+        finally:
+            self.running = False
+            self.finished.emit()
 
-    def enable(self):
-        if not self._bound:
-            for w in (self, self.label, self.arrow):
-                try:
-                    w.bind("<Button-1>", self.toggle_dropdown)
-                    w.configure(cursor="hand2")
-                except Exception:
-                    pass
-            try:
-                self.configure(fg_color="#1E2030", cursor="hand2")
-                self.label.configure(text_color="#E6E9F0")
-                self.arrow.configure(text_color="#2D5BE3")
-            except Exception:
-                pass
-            self._bound = True
-
-class App(ctk.CTk):
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        if not self.is_admin():
-            answer = messagebox.askyesno(
-                "Требуются права администратора",
-                "Для работы этого приложения требуются права администратора.\n"
-                "Приложение будет перезапущено с повышенными правами.\n\n"
-                "Продолжить?"
-            )
-            if answer:
-                self.run_as_admin()
-            else:
-                self.destroy()
-                sys.exit(0)
+        self.setWindowTitle("Zapret UI")
+        self.setFixedSize(400, 480)
 
-        self.settings_path = Path(__file__).parent / "settings.json"
-        self.settings = self.load_settings()
-        # Централизованные шрифты
-        self.default_font = ctk.CTkFont(family="Segoe UI", size=14)
-        self.bold_font = ctk.CTkFont(family="Segoe UI", size=16, weight="bold")
-        self.title_font = ctk.CTkFont(family="Segoe UI Black", size=54, weight="bold")
-
-
-        self.is_connected = ctk.BooleanVar(value=False)
-        self.strategies = [
-            "Стандартный",
-            "ALT",
-            "ALT2 (Рекомендуемый)",
-            "ALT3",
-            "ALT4",
-            "ALT5",
-            "ALT6",
-            "ALT7",
-            "ALT8",
-            "FAKE TLS AUTO",
-            "FAKE TLS AUTO ALT",
-            "FAKE TLS AUTO ALT2",
-            "FAKE TLS AUTO ALT3",
-            "SIMPLE FAKE (MGTS)",
-            "SIMPLE FAKE ALT (MGTS ALT)"
-        ]
-        self.selected_strategy = ctk.StringVar(value=self.settings.get("selected_strategy", "ALT2 (Рекомендуемый)"))
-        self.game_mode = ctk.BooleanVar(value=self.settings.get("game_mode", False))
-
-        try:
-            self.selected_strategy.trace_add("write", lambda *a: self.save_settings())
-            self.game_mode.trace_add("write", lambda *a: self.save_settings())
-        except Exception:
-            try:
-                self.selected_strategy.trace("w", lambda *a: self.save_settings())
-                self.game_mode.trace("w", lambda *a: self.save_settings())
-            except Exception:
-                pass
-
-        self.script_dir = Path(__file__).parent.absolute()
+        self.script_dir = Path(__file__).parent
+        self.settings_path = self.script_dir / "settings.json"
         self.bin_dir = self.script_dir / "bin"
         self.lists_dir = self.script_dir / "lists"
         self.winws_exe = self.bin_dir / "winws.exe"
-        self.current_process = None
+        self.settings = self.load_settings()
 
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        self.is_connected = False
+        self.current_thread = None
 
-        self.geometry("400x480")
-        self.title("Zapret UI")
-        self.resizable(False, False)
-        try:
-            icon_path = os.path.join(self.script_dir, "icon.ico")
-            if os.path.exists(icon_path):
-                self.iconbitmap(icon_path)
-        except Exception:
-            pass
-        self.configure(fg_color=("#1B2235", "#111427"))
+        self.font_default = QFont("Segoe UI", 12)
+        self.font_bold = QFont("Segoe UI", 14, QFont.Bold)
+        self.font_title = QFont("Segoe UI Black", 40, QFont.Bold)
 
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
-        main_frame.pack(expand=True, fill="both", padx=20, pady=20)
+        central = QWidget()
+        self.setCentralWidget(central)
 
-        center_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        center_frame.place(relx=0.5, rely=0.5, anchor="center", relwidth=0.9)
-        center_frame.grid_columnconfigure(0, weight=1)
+        main_layout = QVBoxLayout(central)
+        main_layout.setContentsMargins(40, 30, 40, 30)
+        main_layout.setSpacing(0)
+        main_layout.setAlignment(Qt.AlignVCenter)
 
-        header = ctk.CTkFrame(center_frame, fg_color="transparent")
-        header.grid(row=0, column=0, pady=(0, 25))
-        try:
-            logo = ctk.CTkImage(
-                light_image=Image.open(os.path.join(self.script_dir, "icon.png")),
-                dark_image=Image.open(os.path.join(self.script_dir, "icon.png")),
-                size=(44, 44)
-            )
-            logo_label = ctk.CTkLabel(header, image=logo, text="")
-            logo_label.pack(side="left", padx=(0, 10))
-        except Exception:
-            pass
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setSpacing(20)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setAlignment(Qt.AlignTop)
 
-        title = ctk.CTkLabel(
-            header,
-            text="Zapret UI",
-            font=self.title_font,
-            text_color="#3B82F6"
-        )
-        title.pack(side="left")
+        title_label = QLabel("Zapret UI")
+        title_label.setFont(self.font_title)
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("color: #3B82F6; letter-spacing: 1px;")
+        content_layout.addWidget(title_label)
 
-        self.dropdown = CustomDropdown(
-            center_frame,
-            values=self.strategies,
-            variable=self.selected_strategy,
-            width=325,
-            font=self.default_font,
-            bold_font=self.bold_font
-        )
-        self.dropdown.grid(row=1, column=0, pady=(0, 20))
+        self.combo = QComboBox()
+        self.combo.setFont(self.font_default)
+        self.combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.combo.setMinimumWidth(300)
+        arrow_path = (self.script_dir / "arrow_down_white.svg").as_posix()
+        self.combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #1E2030;
+                color: #E6E9F0;
+                border: 1px solid #2B3A64;
+                border-radius: 6px;
+                height: 38px;
+                padding: 0 36px 0 10px;
+            }}
 
-        self.connect_button = ctk.CTkButton(
-            center_frame,
-            text="Подключить",
-            font=self.bold_font,
-            fg_color="#16A34A",
-            hover_color="#15803D",
-            text_color="#FFFFFF",
-            corner_radius=12,
-            height=50,
-            command=self.handle_connect_toggle
-        )
-        self.connect_button.grid(row=2, column=0, sticky="ew", pady=(10, 25))
+            QComboBox::drop-down {{
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 36px;
+                border-left: 1px solid #2B3A64;
+                background-color: #2D5BE3;
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
+            }}
 
-        status_frame = ctk.CTkFrame(center_frame, fg_color="transparent")
-        status_frame.grid(row=3, column=0, pady=(0, 10))
-        status_label = ctk.CTkLabel(status_frame, text="Статус:",
-                                    font=self.default_font, text_color="gray")
-        status_label.pack(side="left", padx=(0, 5))
-        self.status_value_label = ctk.CTkLabel(status_frame, text="Отключено",
-                                               font=self.bold_font,
-                                               text_color="gray")
-        self.status_value_label.pack(side="left")
+            QComboBox::down-arrow {{
+                image: url({arrow_path});
+                width: 30px;
+                height: 30px;
+                margin-right: 0px;
+                margin-top: 0px;
+            }}
 
-        footer = ctk.CTkFrame(center_frame, fg_color="#181C2B", corner_radius=12)
-        footer.grid(row=4, column=0, pady=(20, 0), sticky="ew")
-        footer.grid_columnconfigure(0, weight=1)
-        mode_label = ctk.CTkLabel(footer, text="Игровой режим:",
-                                  font=self.default_font, text_color="white")
-        mode_label.grid(row=0, column=0, padx=(18, 0), pady=10, sticky="w")
+            QComboBox QAbstractItemView {{
+                background-color: #1A1F3A;
+                border: 1px solid #2B3A64;
+                selection-background-color: #2E4DB7;
+                color: #E9ECF5;
+                outline: none;
+            }}
 
-        self.game_switch = ctk.CTkSwitch(
-            footer, text="", variable=self.game_mode,
-            onvalue=True, offvalue=False,
-            switch_width=60, switch_height=30,
-            progress_color="#16A34A", fg_color="#555",
-            button_color="white", button_hover_color="#DDD",
-            command=self.on_game_mode_toggle,
-            cursor="hand2"
-        )
-        self.game_switch.place(relx=1.075, rely=0.5, anchor="e")
+            QScrollBar:vertical {{
+                border: none;
+                background: #1E2030;
+                width: 10px;
+                margin: 2px 2px 2px 0;
+                border-radius: 4px;
+            }}
 
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+            QScrollBar::handle:vertical {{
+                background: #2D5BE3;
+                min-height: 20px;
+                border-radius: 4px;
+            }}
+
+            QScrollBar::handle:vertical:hover {{
+                background: #3B74FF;
+            }}
+
+            QScrollBar::add-line:vertical,
+            QScrollBar::sub-line:vertical {{
+                background: none;
+                height: 0px;
+            }}
+
+            QScrollBar::add-page:vertical,
+            QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+        """)
+        strategies = [
+            "Стандартный", "ALT", "ALT2 (Рекомендуемый)", "ALT3", "ALT4",
+            "ALT5", "ALT6", "ALT7", "ALT8",
+            "FAKE TLS AUTO", "FAKE TLS AUTO ALT", "FAKE TLS AUTO ALT2",
+            "FAKE TLS AUTO ALT3", "SIMPLE FAKE (MGTS)", "SIMPLE FAKE ALT (MGTS ALT)"
+        ]
+        self.combo.addItems(strategies)
+        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT2 (Рекомендуемый)"))
+        content_layout.addWidget(self.combo)
+
+        self.connect_button = QPushButton("Подключить")
+        self.connect_button.setFont(self.font_bold)
+        self.connect_button.setStyleSheet(self.style_button_green())
+        self.connect_button.clicked.connect(self.handle_connect_toggle)
+        self.connect_button.setMinimumHeight(48)
+        self.connect_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        content_layout.addWidget(self.connect_button)
+
+        status_container = QWidget()
+        status_layout = QHBoxLayout(status_container)
+        status_layout.setContentsMargins(0, 0, 0, 0)
+        status_layout.setSpacing(6)
+
+        label_status = QLabel("Статус:")
+        label_status.setFont(self.font_default)
+        label_status.setStyleSheet("color: gray;")
+
+        self.status_value = QLabel("Отключено")
+        self.status_value.setFont(self.font_bold)
+        self.status_value.setStyleSheet("color: gray;")
+
+        status_layout.addStretch()
+        status_layout.addWidget(label_status)
+        status_layout.addWidget(self.status_value)
+        status_layout.addStretch()
+
+        content_layout.addWidget(status_container, alignment=Qt.AlignCenter)
+
+        game_frame = QWidget()
+        game_frame.setStyleSheet("""
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 10px 16px;
+        """)
+
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(12)
+        shadow.setOffset(0, 0)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        game_frame.setGraphicsEffect(shadow)
+
+        game_layout = QHBoxLayout(game_frame)
+        game_layout.setContentsMargins(0, 5, 20, 5)
+        game_layout.setSpacing(10)
+
+        label_game = QLabel("Игровой режим:")
+        label_game.setFont(self.font_default)
+        label_game.setStyleSheet("color: white; background: transparent;")
+
+        self.game_mode = ToggleSwitch()
+        self.game_mode.setChecked(self.settings.get("game_mode", False))
+        self.game_mode.stateChanged.connect(self.on_game_mode_toggle)
+
+        game_layout.addWidget(label_game)
+        game_layout.addStretch()
+        game_layout.addWidget(self.game_mode)
+
+        content_layout.addWidget(game_frame)
+
+        main_layout.addWidget(content, alignment=Qt.AlignVCenter)
+
+        content_layout.setStretch(0, 0)
+        content_layout.setStretch(1, 1)
+        content_layout.setStretch(2, 1)
+        content_layout.setStretch(3, 1)
+        content_layout.setStretch(4, 1)
+
+        self.apply_dark_theme()
+
+        if not self.is_admin():
+            box = QMessageBox(self)
+            box.setWindowTitle("Требуются права администратора")
+            box.setText("Для работы приложения требуются права администратора.\nПерезапустить с повышенными правами?")
+            box.setIcon(QMessageBox.Warning)
+            box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            box.setDefaultButton(QMessageBox.Yes)
+            box.setStyleSheet("""
+                QMessageBox {
+                    background-color: #1E2030;
+                    color: #E6E9F0;
+                    border: 1px solid #2B3A64;
+                }
+                QMessageBox QLabel {
+                    color: #E6E9F0;
+                    font-size: 13px;
+                }
+                QPushButton {
+                    background-color: #2D5BE3;
+                    color: white;
+                    border-radius: 6px;
+                    padding: 6px 16px;
+                }
+                QPushButton:hover {
+                    background-color: #3B74FF;
+                }
+            """)
+            answer = box.exec()
+
+            if answer == QMessageBox.Yes:
+                self.run_as_admin()
+            else:
+                pass
 
         self.log("Интерфейс готов.")
         self.update_ui_state()
+
+    def show_error(self, title: str, message: str):
+        box = QMessageBox(self)
+        box.setWindowTitle(title)
+        box.setText(message)
+        box.setIcon(QMessageBox.Critical)
+        box.setStyleSheet("""
+            QMessageBox {
+                background-color: #1E2030;
+                color: #E6E9F0;
+                border: 1px solid #2B3A64;
+            }
+            QMessageBox QLabel {
+                color: #E6E9F0;
+                font-size: 13px;
+            }
+            QPushButton {
+                background-color: #2D5BE3;
+                color: white;
+                border-radius: 6px;
+                padding: 6px 16px;
+            }
+            QPushButton:hover {
+                background-color: #3B74FF;
+            }
+        """)
+        box.exec()
+
+    def set_widget_locked(self, widget, locked):
+        if isinstance(widget, QComboBox):
+            arrow_path = (self.script_dir / "arrow_down_white.svg").as_posix()
+
+            if locked:
+                widget.setStyleSheet(f"""
+                    QComboBox {{
+                        background-color: #282B3A;
+                        color: #9FA4B7;
+                        border: 1px solid #2F3650;
+                        border-radius: 6px;
+                        height: 38px;
+                        padding: 0 36px 0 10px;
+                    }}
+
+                    QComboBox::drop-down {{
+                        subcontrol-origin: padding;
+                        subcontrol-position: top right;
+                        width: 36px;
+                        border-left: 1px solid #2F3650;
+                        background-color: #3A3D4F;
+                        border-top-right-radius: 6px;
+                        border-bottom-right-radius: 6px;
+                    }}
+
+                    QComboBox::down-arrow {{
+                        image: url({arrow_path});
+                        width: 30px;
+                        height: 30px;
+                        margin-right: 0px;
+                        margin-top: 0px;
+                    }}
+
+                    QComboBox QAbstractItemView {{
+                        background-color: #1A1F3A;
+                        border: 1px solid #2B3A64;
+                        selection-background-color: #3A4C82;
+                        color: #9FA4B7;
+                        outline: none;
+                    }}
+                """)
+                widget.setEnabled(False)
+            else:
+                widget.setStyleSheet(f"""
+                    QComboBox {{
+                        background-color: #1E2030;
+                        color: #E6E9F0;
+                        border: 1px solid #2B3A64;
+                        border-radius: 6px;
+                        height: 38px;
+                        padding: 0 36px 0 10px;
+                    }}
+
+                    QComboBox::drop-down {{
+                        subcontrol-origin: padding;
+                        subcontrol-position: top right;
+                        width: 36px;
+                        border-left: 1px solid #2B3A64;
+                        background-color: #2D5BE3;
+                        border-top-right-radius: 6px;
+                        border-bottom-right-radius: 6px;
+                    }}
+
+                    QComboBox::down-arrow {{
+                        image: url({arrow_path});
+                        width: 30px;
+                        height: 30px;
+                        margin-right: 0px;
+                        margin-top: 0px;
+                    }}
+
+                    /* ВЫПАДАЮЩИЙ СПИСОК */
+                    QComboBox QAbstractItemView {{
+                        background-color: #1A1F3A;
+                        border: 1px solid #2B3A64;
+                        selection-background-color: #2E4DB7;
+                        selection-color: #FFFFFF;
+                        color: #E9ECF5;
+                        outline: none;
+                    }}
+
+                    /* КАСТОМНЫЙ SCROLLBAR */
+                    QComboBox QScrollBar:vertical {{
+                        border: none;
+                        background: #1A1F3A;
+                        width: 10px;
+                        margin: 2px 2px 2px 0;
+                        border-radius: 4px;
+                    }}
+
+                    QComboBox QScrollBar::handle:vertical {{
+                        background: #2D5BE3;
+                        min-height: 20px;
+                        border-radius: 4px;
+                    }}
+
+                    QComboBox QScrollBar::handle:vertical:hover {{
+                        background: #3B74FF;
+                    }}
+
+                    QComboBox QScrollBar::add-line:vertical,
+                    QComboBox QScrollBar::sub-line:vertical {{
+                        background: none;
+                        height: 0px;
+                    }}
+
+                    QComboBox QScrollBar::add-page:vertical,
+                    QComboBox QScrollBar::sub-page:vertical {{
+                        background: none;
+                    }}
+                """)
+                widget.setEnabled(True)
+            return
+
+        effect = QGraphicsOpacityEffect()
+        effect.setOpacity(0.5 if locked else 1.0)
+        widget.setGraphicsEffect(effect)
+        widget.setEnabled(not locked)
+
+        effect = QGraphicsOpacityEffect()
+        effect.setOpacity(0.5 if locked else 1.0)
+        widget.setGraphicsEffect(effect)
+        widget.setEnabled(not locked)
+
+    def update_cursor_state(self):
+        """Обновляет курсоры всех кликабельных элементов в зависимости от состояния"""
+        if self.is_connected:
+            self.connect_button.setCursor(Qt.PointingHandCursor)
+            self.combo.setCursor(Qt.ForbiddenCursor)
+            self.game_mode.setCursorType(Qt.ForbiddenCursor)
+
+            view = self.combo.view()
+            if view:
+                view.viewport().setCursor(Qt.ForbiddenCursor)
+                view.setCursor(Qt.ForbiddenCursor)
+
+            self.combo.setStyleSheet(self.combo.styleSheet() + " QComboBox::drop-down { cursor: forbidden; }")
+
+        else:
+            self.connect_button.setCursor(Qt.PointingHandCursor)
+            self.combo.setCursor(Qt.PointingHandCursor)
+            self.game_mode.setCursor(Qt.PointingHandCursor)
+
+            view = self.combo.view()
+            if view:
+                view.viewport().setCursor(Qt.PointingHandCursor)
+                view.setCursor(Qt.PointingHandCursor)
+
+            self.combo.setStyleSheet(self.combo.styleSheet() + " QComboBox::drop-down { cursor: pointinghand; }")
+
+    def style_button_green(self):
+        return """
+        QPushButton {
+            background-color: #16A34A;
+            color: white;
+            border-radius: 10px;
+            height: 45px;
+            font-weight: bold;
+        }
+        QPushButton:hover { background-color: #15803D; }
+        """
+
+    def style_button_red(self):
+        return """
+        QPushButton {
+            background-color: #DC2626;
+            color: white;
+            border-radius: 10px;
+            height: 45px;
+            font-weight: bold;
+        }
+        QPushButton:hover { background-color: #B91C1C; }
+        """
+
+    def apply_dark_theme(self):
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(27, 34, 53))
+        palette.setColor(QPalette.WindowText, Qt.white)
+        palette.setColor(QPalette.Base, QColor(24, 28, 43))
+        palette.setColor(QPalette.Text, Qt.white)
+        palette.setColor(QPalette.Button, QColor(27, 34, 53))
+        palette.setColor(QPalette.ButtonText, Qt.white)
+        QApplication.instance().setPalette(palette)
 
     def load_settings(self):
         try:
@@ -380,8 +582,8 @@ class App(ctk.CTk):
 
     def save_settings(self):
         data = {
-            "selected_strategy": self.selected_strategy.get(),
-            "game_mode": self.game_mode.get()
+            "selected_strategy": self.combo.currentText(),
+            "game_mode": self.game_mode.isChecked()
         }
         try:
             with open(self.settings_path, "w", encoding="utf-8") as f:
@@ -397,30 +599,33 @@ class App(ctk.CTk):
 
     def run_as_admin(self):
         try:
+            params = " ".join(f'"{arg}"' for arg in sys.argv[1:])
             ctypes.windll.shell32.ShellExecuteW(
-                None, "runas", sys.executable, " ".join(sys.argv), None, 1
+                None, "runas", sys.executable, f'"{__file__}" {params}', None, 1
             )
             sys.exit(0)
-        except Exception:
-            messagebox.showerror("Ошибка", "Не удалось запустить от имени администратора.")
+        except Exception as e:
+            self.show_error("Ошибка", f"Не удалось запустить от имени администратора:\n{e}")
+
+    def log(self, msg):
+        print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
     def handle_connect_toggle(self):
-        if self.is_connected.get():
+        if self.is_connected:
             self.stop_zapret()
         else:
             self.start_zapret()
 
     def start_zapret(self):
-        """Запуск winws.exe с параметрами выбранного режима"""
         try:
             if not self.winws_exe.exists():
-                messagebox.showerror("Ошибка", f"Файл {self.winws_exe} не найден!")
+                self.show_error("Ошибка", f"Файл {self.winws_exe} не найден!")
                 return
             if not self.lists_dir.exists():
-                messagebox.showerror("Ошибка", f"Папка {self.lists_dir} не найдена!")
+                self.show_error("Ошибка", f"Папка {self.lists_dir} не найдена!")
                 return
 
-            mode = self.selected_strategy.get()
+            mode = self.combo.currentText()
             self.log(f"Запуск режима: {mode}")
 
             params = self.get_script_parameters(mode)
@@ -429,75 +634,83 @@ class App(ctk.CTk):
             self.log("Выполняется команда:")
             self.log(" ".join(cmd))
 
-            thread = threading.Thread(target=self.run_process, args=(cmd,), daemon=True)
-            thread.start()
+            self.current_thread = WorkerThread(cmd, str(self.bin_dir))
+            self.current_thread.output.connect(self.log)
+            self.current_thread.finished.connect(self.on_process_finished)
+            self.current_thread.start()
+
+            self.is_connected = True
+            self.update_ui_state()
 
         except Exception as e:
-            messagebox.showerror("Ошибка запуска", str(e))
-
-    def run_process(self, cmd):
-        try:
-            creationflags = 0
-            try:
-                creationflags = subprocess.CREATE_NO_WINDOW
-            except Exception:
-                creationflags = 0
-
-            self.current_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                creationflags=creationflags,
-                cwd=str(self.bin_dir)
-            )
-            self.is_connected.set(True)
-            self.update_ui_state()
-            self.log("Процесс запущен.")
-
-            for line in iter(self.current_process.stdout.readline, ''):
-                if not line:
-                    break
-                print(line.rstrip())
-
-            self.current_process.wait()
-            self.is_connected.set(False)
-            self.update_ui_state()
-            self.log("Процесс завершён.")
-            self.current_process = None
-        except Exception as e:
-            self.log(f"Ошибка: {e}")
-            self.is_connected.set(False)
-            self.update_ui_state()
-            self.current_process = None
+            self.show_error("Ошибка запуска", str(e))
 
     def stop_zapret(self):
-        """Останавливает процесс winws.exe"""
         try:
-            if self.current_process and self.current_process.poll() is None:
-                self.current_process.terminate()
-                time.sleep(1)
-                if self.current_process.poll() is None:
-                    subprocess.run(["taskkill", "/f", "/im", "winws.exe"], capture_output=True)
+            if self.current_thread and self.current_thread.isRunning():
+                self.current_thread.stop()
             else:
                 subprocess.run(["taskkill", "/f", "/im", "winws.exe"], capture_output=True)
 
-            self.current_process = None
-            self.is_connected.set(False)
+            self.current_thread = None
+            self.is_connected = False
             self.update_ui_state()
             self.log("Процесс winws.exe остановлен.")
         except Exception as e:
             self.log(f"Ошибка остановки: {e}")
-            messagebox.showerror("Ошибка", f"Не удалось остановить процесс:\n{e}")
+            self.show_error("Ошибка", f"Не удалось остановить процесс:\n{e}")
+
+    def on_process_finished(self):
+        self.log("Процесс завершён.")
+        self.current_thread = None
+        self.is_connected = False
+        self.update_ui_state()
+
+    def on_game_mode_toggle(self):
+        if self.game_mode.isChecked():
+            self.log("Игровой режим включён (фильтр: 1024-65535)")
+        else:
+            self.log("Игровой режим выключен (фильтр: 12)")
+        self.save_settings()
+
+    def update_ui_state(self):
+        if self.is_connected:
+            self.connect_button.setText("Отключить")
+            self.connect_button.setStyleSheet(self.style_button_red())
+            self.status_value.setText("Подключено")
+            self.status_value.setStyleSheet("color: #16A34A;")
+
+            self.combo.setEnabled(False)
+            self.game_mode.setEnabled(False)
+
+            self.set_widget_locked(self.combo, True)
+            self.game_mode.setLocked(True)
+
+        else:
+            self.connect_button.setText("Подключить")
+            self.connect_button.setStyleSheet(self.style_button_green())
+            self.status_value.setText("Отключено")
+            self.status_value.setStyleSheet("color: gray;")
+
+            self.combo.setEnabled(True)
+            self.game_mode.setEnabled(True)
+
+            self.set_widget_locked(self.combo, False)
+            self.game_mode.setLocked(False)
+
+        self.connect_button.setCursor(Qt.PointingHandCursor)
+        self.combo.setCursor(Qt.PointingHandCursor)
+        self.game_mode.setCursor(Qt.PointingHandCursor)
+
+    def closeEvent(self, event):
+        if self.is_connected:
+            self.stop_zapret()
+
+        self.save_settings()
+        event.accept()
 
     def get_script_parameters(self, mode):
-        """
-        Возвращает параметры командной строки для выбранного режима.
-        game_filter теперь определяется по self.game_mode:
-          True  -> "1024-65535"
-          False -> "12"
-        """
-        if self.game_mode.get():
+        if self.game_mode.isChecked():
             game_filter = "1024-65535"
         else:
             game_filter = "12"
@@ -974,85 +1187,11 @@ class App(ctk.CTk):
 
         return params
 
-    def disable_game_switch(self):
-        self.switch_locked = True
-        self.game_switch.configure(
-            state="disabled",
-            progress_color="#6B7280",
-            fg_color="#374151",
-            button_color="#9CA3AF",
-            cursor="no"
-        )
-
-    def enable_game_switch(self):
-        self.switch_locked = False
-        self.game_switch.configure(
-            state="normal",
-            progress_color="#16A34A",
-            fg_color="#555",
-            button_color="white",
-            cursor="hand2"
-        )
-
-    def update_ui_state(self):
-        if self.is_connected.get():
-            self.connect_button.configure(text="Отключить", fg_color="#DC2626", hover_color="#B91C1C")
-            self.status_value_label.configure(text="Подключено", text_color="#16A34A")
-            try:
-                self.dropdown.disable()
-            except Exception:
-                pass
-            try:
-                self.disable_game_switch()
-            except Exception:
-                try:
-                    self.disable_game_switch()
-                except Exception:
-                    pass
-        else:
-            self.connect_button.configure(text="Подключить", fg_color="#16A34A", hover_color="#15803D")
-            self.status_value_label.configure(text="Отключено", text_color="gray")
-            try:
-                self.dropdown.enable()
-            except Exception:
-                pass
-            try:
-                self.enable_game_switch()
-            except Exception:
-                try:
-                    self.game_switch.configure(state="normal")
-                except Exception:
-                    pass
-
-    def on_game_mode_toggle(self):
-        if self.game_mode.get():
-            self.log("Игровой режим включён (фильтр: 1024-65535)")
-        else:
-            self.log("Игровой режим выключен (фильтр: 12)")
-
-    def log(self, msg: str):
-        print(f"[{time.strftime('%H:%M:%S')}] {msg}")
-
-    def on_close(self):
-        if self.current_process and self.current_process.poll() is None:
-            answer = messagebox.askyesno(
-                "Процесс работает",
-                "Процесс winws.exe всё ещё работает. Вы уверены, что хотите выйти? (это попытается остановить процесс)"
-            )
-            if not answer:
-                return
-            try:
-                subprocess.run(["taskkill", "/f", "/im", "winws.exe"], capture_output=True)
-            except Exception:
-                pass
-
-        self.save_settings()
-        try:
-            self.destroy()
-        except Exception:
-            sys.exit(0)
-
-
 if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    app = QApplication(sys.argv)
+    icon_path = Path(__file__).parent / "icon.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
