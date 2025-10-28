@@ -11,11 +11,13 @@ from PySide6.QtGui import QIcon, QFont, QPalette, QColor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QMessageBox, QSizePolicy, QGraphicsOpacityEffect,
-    QGraphicsDropShadowEffect
+    QGraphicsDropShadowEffect, QSpacerItem
 )
 
 from toggle_switch import ToggleSwitch
 from worker_thread import WorkerThread
+from list_editor import ListEditorDialog
+from list_editor import ListEditorDialog, BUTTON_STYLE_DARK
 
 
 class MainWindow(QMainWindow):
@@ -129,13 +131,13 @@ class MainWindow(QMainWindow):
             }}
         """)
         strategies = [
-            "Стандартный", "ALT", "ALT2 (Рекомендуемый)", "ALT3", "ALT4",
-            "ALT5", "ALT6", "ALT7", "ALT8",
+            "Стандартный", "ALT", "ALT2", "ALT3", "ALT4",
+            "ALT5", "ALT6 (Рекомендуемый)", "ALT7", "ALT8",
             "FAKE TLS AUTO", "FAKE TLS AUTO ALT", "FAKE TLS AUTO ALT2",
             "FAKE TLS AUTO ALT3", "SIMPLE FAKE (MGTS)", "SIMPLE FAKE ALT (MGTS ALT)"
         ]
         self.combo.addItems(strategies)
-        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT2 (Рекомендуемый)"))
+        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT6 (Рекомендуемый)"))
         content_layout.addWidget(self.combo)
 
         self.connect_button = QPushButton("Подключить")
@@ -194,6 +196,14 @@ class MainWindow(QMainWindow):
         game_layout.addWidget(label_game)
         game_layout.addStretch()
         game_layout.addWidget(self.game_mode)
+
+        self.edit_lists_btn = QPushButton("Редактировать списки")
+        self.edit_lists_btn.setFont(self.font_default)
+        self.edit_lists_btn.setMinimumHeight(40)
+        self.edit_lists_btn.setStyleSheet(BUTTON_STYLE_DARK)
+        self.edit_lists_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_lists_btn.clicked.connect(self.open_list_editor)
+        content_layout.addWidget(self.edit_lists_btn)
 
         content_layout.addWidget(game_frame)
 
@@ -270,6 +280,13 @@ class MainWindow(QMainWindow):
             }
         """)
         box.exec()
+
+    def open_list_editor(self):
+        try:
+            editor = ListEditorDialog(str(self.lists_dir), parent=self)
+            editor.exec()
+        except Exception as e:
+            self.show_error("Ошибка", f"Не удалось открыть редактор списков:\n{e}")
 
     def set_widget_locked(self, widget, locked):
         if isinstance(widget, QComboBox):
@@ -494,8 +511,10 @@ class MainWindow(QMainWindow):
 
     def handle_connect_toggle(self):
         if self.is_connected:
+            self.edit_lists_btn.setEnabled(True)
             self.stop_zapret()
         else:
+            self.edit_lists_btn.setEnabled(False)
             self.start_zapret()
 
     def start_zapret(self):
