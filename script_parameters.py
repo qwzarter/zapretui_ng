@@ -2,14 +2,6 @@ from typing import List
 
 
 def get_script_parameters(game_mode_checked: bool, lists_dir: str, bin_dir: str, mode: str) -> List[str]:
-    """Return the same parameter list previously defined in MainWindow.get_script_parameters.
-
-    Parameters:
-    - game_mode_checked: whether the game mode checkbox is checked (originally self.game_mode.isChecked())
-    - lists_dir: path to the lists directory (originally self.lists_dir)
-    - bin_dir: path to the bin directory (originally self.bin_dir)
-    - mode: the selected mode string
-    """
     if game_mode_checked:
         game_filter = "1024-65535"
     else:

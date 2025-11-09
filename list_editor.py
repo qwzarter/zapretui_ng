@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QTextCursor, QTextCharFormat, QColor, QPalette
 from PySide6.QtCore import Qt
+from effects import apply_mica_effect, apply_mica_visual, apply_mica_to_dialog
 
 BUTTON_STYLE_DARK = """
 QPushButton {
@@ -32,42 +33,18 @@ QPushButton:disabled {
 
 DIALOG_STYLE = """
 QDialog {
-    background-color: #111827;
+    background-color: transparent;
     color: #E5E7EB;
 }
 QLabel {
     color: #E5E7EB;
 }
 QTextEdit {
-    background-color: #1F2937;
+    background-color: rgba(30, 35, 55, 0.85);
     color: #F3F4F6;
-    border: 1px solid #374151;
+    border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     padding: 6px;
-}
-QScrollBar:vertical {
-    border: none;
-    background: #1E2030;
-    width: 10px;
-    margin: 2px 2px 2px 0;
-    border-radius: 4px;
-}
-QScrollBar::handle:vertical {
-    background: #2D5BE3;
-    min-height: 20px;
-    border-radius: 4px;
-}
-QScrollBar::handle:vertical:hover {
-    background: #3B74FF;
-}
-QScrollBar::add-line:vertical,
-QScrollBar::sub-line:vertical {
-    background: none;
-    height: 0px;
-}
-QScrollBar::add-page:vertical,
-QScrollBar::sub-page:vertical {
-    background: none;
 }
 """
 
@@ -81,6 +58,12 @@ class ListEditorDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Редактор списков — list-general.txt")
         self.setMinimumSize(650, 500)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAutoFillBackground(False)
+
+        pal = self.palette()
+        pal.setColor(QPalette.Window, QColor(0, 0, 0, 0))
+        self.setPalette(pal)
 
         self.setStyleSheet(DIALOG_STYLE)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
@@ -128,8 +111,12 @@ class ListEditorDialog(QDialog):
         btn_layout.addWidget(self.save_btn)
         btn_layout.addWidget(self.reload_btn)
         layout.addLayout(btn_layout)
-
         self.load_file()
+        apply_mica_effect(self)
+        apply_mica_visual(self.text, alt=True)
+        apply_mica_visual(self.validate_btn, alt=True)
+        apply_mica_visual(self.save_btn, alt=True)
+        apply_mica_visual(self.reload_btn, alt=True)
 
     def load_file(self):
         try:
@@ -225,15 +212,16 @@ class ListEditorDialog(QDialog):
         box = QMessageBox(self)
         box.setWindowTitle(title)
         box.setText(text)
-        box.setStyleSheet(DIALOG_STYLE + BUTTON_STYLE_DARK)
         box.setIcon(QMessageBox.Critical if error else QMessageBox.Information)
+        apply_mica_to_dialog(box, alt=None if error else False)
         box.exec()
+
 
     def ask_question(self, title: str, text: str):
         box = QMessageBox(self)
         box.setWindowTitle(title)
         box.setText(text)
-        box.setStyleSheet(DIALOG_STYLE + BUTTON_STYLE_DARK)
         box.setIcon(QMessageBox.Question)
         box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        apply_mica_to_dialog(box, alt=True)
         return box.exec() == QMessageBox.Yes

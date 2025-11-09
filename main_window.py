@@ -5,19 +5,19 @@ import ctypes
 import time
 import subprocess
 from pathlib import Path
+from effects import apply_mica_effect, apply_mica_visual, apply_mica_to_dialog
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon, QFont, QPalette, QColor
+from PySide6.QtGui import QFont, QPalette, QColor
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QComboBox, QMessageBox, QSizePolicy, QGraphicsOpacityEffect,
-    QGraphicsDropShadowEffect, QSpacerItem
+    QGraphicsDropShadowEffect
 )
 
 from toggle_switch import ToggleSwitch
 from worker_thread import WorkerThread
 from list_editor import ListEditorDialog
-from list_editor import ListEditorDialog, BUTTON_STYLE_DARK
 
 
 class MainWindow(QMainWindow):
@@ -67,24 +67,26 @@ class MainWindow(QMainWindow):
         arrow_path = (self.script_dir / "arrow_down_white.svg").as_posix()
         self.combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #1E2030;
+                background-color: rgba(40, 45, 60, 0.92);
                 color: #E6E9F0;
-                border: 1px solid #2B3A64;
+                border: 1px solid rgba(255,255,255,0.08);
                 border-radius: 6px;
                 height: 38px;
                 padding: 0 36px 0 10px;
+                font-size: 15px;
             }}
-
+            QComboBox:hover {{
+                background-color: rgba(255,255,255,0.07);
+            }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding;
                 subcontrol-position: top right;
                 width: 36px;
-                border-left: 1px solid #2B3A64;
-                background-color: #2D5BE3;
+                border-left: 1px solid rgba(255,255,255,0.05);
+                background-color: rgba(255,255,255,0.04);
                 border-top-right-radius: 6px;
                 border-bottom-right-radius: 6px;
             }}
-
             QComboBox::down-arrow {{
                 image: url({arrow_path});
                 width: 30px;
@@ -92,53 +94,74 @@ class MainWindow(QMainWindow):
                 margin-right: 0px;
                 margin-top: 0px;
             }}
-
             QComboBox QAbstractItemView {{
-                background-color: #1A1F3A;
-                border: 1px solid #2B3A64;
-                selection-background-color: #2E4DB7;
-                color: #E9ECF5;
+                background-color: rgba(36, 40, 55, 0.94);
+                border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 8px;
+                color: #E6E9F0;
+                selection-background-color: rgba(255,255,255,0.12);
+                selection-color: #FFFFFF;
                 outline: none;
+                font-size: 15px;
             }}
-
+            QComboBox QAbstractItemView::viewport {{
+                background-color: rgba(36, 40, 55, 0.94);
+            }}
             QScrollBar:vertical {{
-                border: none;
-                background: #1E2030;
+                background: rgba(30, 33, 45, 0.9);
                 width: 10px;
-                margin: 2px 2px 2px 0;
-                border-radius: 4px;
+                margin: 0px;
+                border-radius: 5px;
             }}
-
             QScrollBar::handle:vertical {{
-                background: #2D5BE3;
+                background: rgba(255,255,255,0.18);
+                border-radius: 5px;
                 min-height: 20px;
-                border-radius: 4px;
             }}
-
             QScrollBar::handle:vertical:hover {{
-                background: #3B74FF;
+                background: rgba(255,255,255,0.3);
             }}
-
             QScrollBar::add-line:vertical,
             QScrollBar::sub-line:vertical {{
-                background: none;
                 height: 0px;
+                background: none;
+                border: none;
             }}
-
             QScrollBar::add-page:vertical,
             QScrollBar::sub-page:vertical {{
                 background: none;
             }}
         """)
+        self.combo.setAttribute(Qt.WA_TranslucentBackground, False)
+        view = self.combo.view()
+        view.setAttribute(Qt.WA_TranslucentBackground, False)
+        view.setStyleSheet("""
+            QListView {
+                background-color: rgba(25, 30, 45, 0.95);
+                border: 1px solid rgba(255,255,255,0.1);
+                color: #E9ECF5;
+                outline: none;
+            }
+            QListView::item:hover {
+                background-color: rgba(255,255,255,0.1);
+            }
+            QListView::item:selected {
+                background-color: rgba(255,255,255,0.15);
+            }
+        """)
         strategies = [
             "Стандартный", "ALT", "ALT2", "ALT3", "ALT4",
-            "ALT5", "ALT6 (Рекомендуемый)", "ALT7", "ALT8",
+            "ALT5", "ALT6 (Рекомендуемый)", "ALT7 (Рекомендуемый)", "ALT8",
             "FAKE TLS AUTO", "FAKE TLS AUTO ALT", "FAKE TLS AUTO ALT2",
             "FAKE TLS AUTO ALT3", "SIMPLE FAKE (MGTS)", "SIMPLE FAKE ALT (MGTS ALT)"
         ]
         self.combo.addItems(strategies)
-        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT6 (Рекомендуемый)"))
+        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT7 (Рекомендуемый)"))
         content_layout.addWidget(self.combo)
+        apply_mica_visual(self.combo, alt=True)
+
+
+        view = self.combo.view()
 
         self.connect_button = QPushButton("Подключить")
         self.connect_button.setFont(self.font_bold)
@@ -200,7 +223,18 @@ class MainWindow(QMainWindow):
         self.edit_lists_btn = QPushButton("Редактировать списки")
         self.edit_lists_btn.setFont(self.font_default)
         self.edit_lists_btn.setMinimumHeight(40)
-        self.edit_lists_btn.setStyleSheet(BUTTON_STYLE_DARK)
+        self.edit_lists_btn.setStyleSheet("""
+        QPushButton {
+            background-color: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #E6E9F0;
+            padding: 8px 16px;
+        }
+        QPushButton:hover {
+            background-color: rgba(255,255,255,0.12);
+        }
+        """)
         self.edit_lists_btn.setCursor(Qt.PointingHandCursor)
         self.edit_lists_btn.clicked.connect(self.open_list_editor)
         content_layout.addWidget(self.edit_lists_btn)
@@ -216,6 +250,8 @@ class MainWindow(QMainWindow):
         content_layout.setStretch(4, 1)
 
         self.apply_dark_theme()
+        apply_mica_effect(self, alt=False)
+        apply_mica_visual(self.edit_lists_btn, alt=False)
 
         if not self.is_admin():
             box = QMessageBox(self)
@@ -224,26 +260,7 @@ class MainWindow(QMainWindow):
             box.setIcon(QMessageBox.Warning)
             box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
             box.setDefaultButton(QMessageBox.Yes)
-            box.setStyleSheet("""
-                QMessageBox {
-                    background-color: #1E2030;
-                    color: #E6E9F0;
-                    border: 1px solid #2B3A64;
-                }
-                QMessageBox QLabel {
-                    color: #E6E9F0;
-                    font-size: 13px;
-                }
-                QPushButton {
-                    background-color: #2D5BE3;
-                    color: white;
-                    border-radius: 6px;
-                    padding: 6px 16px;
-                }
-                QPushButton:hover {
-                    background-color: #3B74FF;
-                }
-            """)
+            apply_mica_to_dialog(box)
             answer = box.exec()
 
             if answer == QMessageBox.Yes:
@@ -259,151 +276,106 @@ class MainWindow(QMainWindow):
         box.setWindowTitle(title)
         box.setText(message)
         box.setIcon(QMessageBox.Critical)
-        box.setStyleSheet("""
-            QMessageBox {
-                background-color: #1E2030;
-                color: #E6E9F0;
-                border: 1px solid #2B3A64;
-            }
-            QMessageBox QLabel {
-                color: #E6E9F0;
-                font-size: 13px;
-            }
-            QPushButton {
-                background-color: #2D5BE3;
-                color: white;
-                border-radius: 6px;
-                padding: 6px 16px;
-            }
-            QPushButton:hover {
-                background-color: #3B74FF;
-            }
-        """)
+        apply_mica_to_dialog(box)
         box.exec()
 
     def open_list_editor(self):
         try:
             editor = ListEditorDialog(str(self.lists_dir), parent=self)
+            apply_mica_to_dialog(editor, alt=True)
             editor.exec()
         except Exception as e:
             self.show_error("Ошибка", f"Не удалось открыть редактор списков:\n{e}")
 
     def set_widget_locked(self, widget, locked):
+        arrow_path = (self.script_dir / "arrow_down_white.svg").as_posix()
+
         if isinstance(widget, QComboBox):
-            arrow_path = (self.script_dir / "arrow_down_white.svg").as_posix()
+            base_bg = "rgba(40, 45, 60, 0.95)"
+            hover_bg = "rgba(255,255,255,0.06)"
+            drop_bg = "rgba(40, 45, 60, 0.93)"
+            border = "rgba(255,255,255,0.07)"
 
-            if locked:
-                widget.setStyleSheet(f"""
-                    QComboBox {{
-                        background-color: #282B3A;
-                        color: #9FA4B7;
-                        border: 1px solid #2F3650;
-                        border-radius: 6px;
-                        height: 38px;
-                        padding: 0 36px 0 10px;
-                    }}
+            text_color = "#E6E9F0" if not locked else "#9FA4B7"
 
-                    QComboBox::drop-down {{
-                        subcontrol-origin: padding;
-                        subcontrol-position: top right;
-                        width: 36px;
-                        border-left: 1px solid #2F3650;
-                        background-color: #3A3D4F;
-                        border-top-right-radius: 6px;
-                        border-bottom-right-radius: 6px;
-                    }}
+            widget.setStyleSheet(f"""
+                QComboBox {{
+                    background-color: {base_bg};
+                    color: {text_color};
+                    border: 1px solid {border};
+                    border-radius: 6px;
+                    height: 38px;
+                    padding: 0 36px 0 10px;
+                    font-size: 15px;
+                }}
+                QComboBox:hover {{
+                    background-color: {hover_bg};
+                }}
+                QComboBox::drop-down {{
+                    subcontrol-origin: padding;
+                    subcontrol-position: top right;
+                    width: 36px;
+                    border-left: 1px solid {border};
+                    background-color: rgba(255,255,255,0.04);
+                    border-top-right-radius: 6px;
+                    border-bottom-right-radius: 6px;
+                }}
+                QComboBox::down-arrow {{
+                    image: url({arrow_path});
+                    width: 30px;
+                    height: 30px;
+                    margin-right: 0px;
+                    margin-top: 0px;
+                }}
+                QComboBox QAbstractItemView {{
+                    background-color: {drop_bg};
+                    border: 1px solid {border};
+                    border-radius: 8px;
+                    color: {text_color};
+                    selection-background-color: rgba(255,255,255,0.12);
+                    selection-color: #FFFFFF;
+                    font-size: 15px;
+                    outline: none;
+                }}
+                QComboBox QAbstractItemView::viewport {{
+                    background-color: rgba(36, 40, 55, 0.96);
+                }}
+                QScrollBar:vertical {{
+                    border: none;
+                    background: rgba(25, 28, 40, 0.6);
+                    width: 10px;
+                    margin: 0px;
+                    border-radius: 5px;
+                }}
+                QScrollBar::handle:vertical {{
+                    background: rgba(255,255,255,0.18);
+                    border-radius: 5px;
+                    min-height: 20px;
+                }}
+                QScrollBar::handle:vertical:hover {{
+                    background: rgba(255,255,255,0.3);
+                }}
+                QScrollBar::add-line:vertical,
+                QScrollBar::sub-line:vertical {{
+                    background: none;
+                    border: none;
+                    height: 0px;
+                }}
+                QScrollBar::add-page:vertical,
+                QScrollBar::sub-page:vertical {{
+                    background: none;
+                    height: 0px;
+                }}
+            """)
 
-                    QComboBox::down-arrow {{
-                        image: url({arrow_path});
-                        width: 30px;
-                        height: 30px;
-                        margin-right: 0px;
-                        margin-top: 0px;
-                    }}
+            try:
+                apply_mica_visual(widget, alt=True)
+                apply_mica_visual(widget.view(), alt=True)
+            except Exception:
+                pass
 
-                    QComboBox QAbstractItemView {{
-                        background-color: #1A1F3A;
-                        border: 1px solid #2B3A64;
-                        selection-background-color: #3A4C82;
-                        color: #9FA4B7;
-                        outline: none;
-                    }}
-                """)
-                widget.setEnabled(False)
-            else:
-                widget.setStyleSheet(f"""
-                    QComboBox {{
-                        background-color: #1E2030;
-                        color: #E6E9F0;
-                        border: 1px solid #2B3A64;
-                        border-radius: 6px;
-                        height: 38px;
-                        padding: 0 36px 0 10px;
-                    }}
-
-                    QComboBox::drop-down {{
-                        subcontrol-origin: padding;
-                        subcontrol-position: top right;
-                        width: 36px;
-                        border-left: 1px solid #2B3A64;
-                        background-color: #2D5BE3;
-                        border-top-right-radius: 6px;
-                        border-bottom-right-radius: 6px;
-                    }}
-
-                    QComboBox::down-arrow {{
-                        image: url({arrow_path});
-                        width: 30px;
-                        height: 30px;
-                        margin-right: 0px;
-                        margin-top: 0px;
-                    }}
-
-                    QComboBox QAbstractItemView {{
-                        background-color: #1A1F3A;
-                        border: 1px solid #2B3A64;
-                        selection-background-color: #2E4DB7;
-                        selection-color: #FFFFFF;
-                        color: #E9ECF5;
-                        outline: none;
-                    }}
-
-                    QComboBox QScrollBar:vertical {{
-                        border: none;
-                        background: #1E2030;
-                        width: 10px;
-                        margin: 2px 2px 2px 0;
-                        border-radius: 4px;
-                    }}
-
-                    QComboBox QScrollBar::handle:vertical {{
-                        background: #2D5BE3;
-                        min-height: 20px;
-                        border-radius: 4px;
-                    }}
-
-                    QComboBox QScrollBar::handle:vertical:hover {{
-                        background: #3B74FF;
-                    }}
-
-                    QComboBox QScrollBar::add-line:vertical,
-                    QComboBox QScrollBar::sub-line:vertical {{
-                        background: none;
-                        height: 0px;
-                    }}
-
-                    QComboBox QScrollBar::add-page:vertical,
-                    QComboBox QScrollBar::sub-page:vertical {{
-                        background: none;
-                    }}
-                """)
-                widget.setEnabled(True)
+            widget.setEnabled(not locked)
             return
-
-        effect = QGraphicsOpacityEffect()
-        effect.setOpacity(0.5 if locked else 1.0)
-        widget.setGraphicsEffect(effect)
-        widget.setEnabled(not locked)
 
         effect = QGraphicsOpacityEffect()
         effect.setOpacity(0.5 if locked else 1.0)
@@ -461,7 +433,6 @@ class MainWindow(QMainWindow):
 
     def apply_dark_theme(self):
         palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(27, 34, 53))
         palette.setColor(QPalette.WindowText, Qt.white)
         palette.setColor(QPalette.Base, QColor(24, 28, 43))
         palette.setColor(QPalette.Text, Qt.white)

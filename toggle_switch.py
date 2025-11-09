@@ -8,6 +8,8 @@ class ToggleSwitch(QCheckBox):
         super().__init__(parent)
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(50, 28)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
 
         self._handle_x = 3
         self._anim = QPropertyAnimation(self, b"handle_position")
