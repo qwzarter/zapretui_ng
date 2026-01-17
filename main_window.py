@@ -150,13 +150,14 @@ class MainWindow(QMainWindow):
             }
         """)
         strategies = [
-            "Стандартный", "ALT", "ALT2", "ALT3", "ALT4",
-            "ALT5", "ALT6 (Рекомендуемый)", "ALT7 (Рекомендуемый)", "ALT8",
-            "FAKE TLS AUTO", "FAKE TLS AUTO ALT", "FAKE TLS AUTO ALT2",
-            "FAKE TLS AUTO ALT3", "SIMPLE FAKE (MGTS)", "SIMPLE FAKE ALT (MGTS ALT)"
-        ]
+                    "General", "Alt", "Alt2", "Alt3", "Alt4",
+                    "Alt5", "Alt6", "Alt7", "Alt8",
+                    "Alt9", "Alt10", "Alt11",
+                    "Fake Tls Auto", "Fake Tls Auto Alt", "Fake Tls Auto Alt2",
+                    "Fake Tls Auto Alt3", "Simple fake", "Simple Fake ALT", "Simple Fake ALT2"
+                ]
         self.combo.addItems(strategies)
-        self.combo.setCurrentText(self.settings.get("selected_strategy", "ALT7 (Рекомендуемый)"))
+        self.combo.setCurrentText(self.settings.get("selected_strategy", "Alt7"))
         content_layout.addWidget(self.combo)
         apply_mica_visual(self.combo, alt=True)
 
