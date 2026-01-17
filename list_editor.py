@@ -52,11 +52,21 @@ DOMAIN_RE = re.compile(
     r"^(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}$"
 )
 
-
 class ListEditorDialog(QDialog):
-    def __init__(self, lists_dir: str, filename: str = "list-general.txt", parent=None):
+    # Добавили параметр editor_type: "domains" или "strategy"
+    def __init__(self, lists_dir: str, filename: str = "list-general.txt", editor_type: str = "domains", parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Редактор списков — list-general.txt")
+        self.lists_dir = Path(lists_dir)
+        self.filename = filename
+        self.filepath = self.lists_dir / self.filename
+        self.editor_type = editor_type  # Сохраняем тип редактора
+
+        title_map = {
+            "domains": f"Редактор списков — {filename}",
+            "strategy": "Редактор Custom стратегии"
+        }
+        self.setWindowTitle(title_map.get(editor_type, "Редактор"))
+        
         self.setMinimumSize(650, 500)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAutoFillBackground(False)
@@ -68,18 +78,23 @@ class ListEditorDialog(QDialog):
         self.setStyleSheet(DIALOG_STYLE)
         self.setWindowFlag(Qt.WindowStaysOnTopHint, True)
 
-        self.lists_dir = Path(lists_dir)
-        self.filename = filename
-        self.filepath = self.lists_dir / self.filename
-
         self.font_default = QFont("Segoe UI", 11)
 
         layout = QVBoxLayout(self)
 
-        info = QLabel(
-            "Один домен на строку (пример: example.com)\n"
-            "Перед сохранением создаётся резервная копия файла."
-        )
+        # Разный текст подсказки в зависимости от режима
+        if self.editor_type == "strategy":
+            lbl_text = (
+                "Введите аргументы стратегии (например: --dpi-desync=fake).\n"
+                "Можно писать всё в одну строку или разбивать по строкам."
+            )
+        else:
+            lbl_text = (
+                "Один домен на строку (пример: example.com)\n"
+                "Перед сохранением создаётся резервная копия файла."
+            )
+
+        info = QLabel(lbl_text)
         info.setFont(self.font_default)
         layout.addWidget(info)
 
@@ -144,17 +159,34 @@ class ListEditorDialog(QDialog):
         for i, raw in enumerate(lines):
             line = raw.strip()
             line_len = len(raw)
-            if line and not DOMAIN_RE.match(line):
+            
+            is_invalid = False
+            if line:
+                if self.editor_type == "domains":
+                    # Логика для доменов
+                    if not DOMAIN_RE.match(line):
+                        is_invalid = True
+                elif self.editor_type == "strategy":
+                    # Логика для стратегии: просто подсветим, если строка не пустая и не начинается с "-"
+                    # (это мягкая проверка, так как аргументы могут быть сложными)
+                    if not line.startswith("-"):
+                        is_invalid = True
+
+            if is_invalid:
                 invalid_lines.append((i + 1, line))
                 cursor.setPosition(pos)
                 cursor.movePosition(QTextCursor.EndOfLine, QTextCursor.KeepAnchor)
                 cursor.mergeCharFormat(fmt_invalid)
+            
             pos += line_len + 1
 
         if invalid_lines:
-            msg = "Найдены некорректные строки:\n" + "\n".join(
-                f"{ln}: {val}" for ln, val in invalid_lines
-            )
+            if self.editor_type == "domains":
+                msg = "Найдены некорректные строки (не похожи на домены):\n"
+            else:
+                msg = "Найдены строки без дефиса (возможно, это не аргументы):\n"
+                
+            msg += "\n".join(f"{ln}: {val}" for ln, val in invalid_lines)
             self.show_message("Проверка", msg)
         else:
             self.show_message("Проверка", "Ошибок не найдено.")
@@ -172,39 +204,41 @@ class ListEditorDialog(QDialog):
         try:
             raw = self.text.toPlainText()
             lines = [ln.strip() for ln in raw.splitlines()]
-            seen = set()
+            
             cleaned = []
-            for ln in lines:
-                if ln and ln not in seen:
-                    seen.add(ln)
-                    cleaned.append(ln)
-
-            bad = [ln for ln in cleaned if not DOMAIN_RE.match(ln)]
-            if bad:
-                reply = self.ask_question(
-                    "Некорректные строки",
-                    "Найдены строки, которые не выглядят как домены:\n\n"
-                    + "\n".join(bad[:20])
-                    + ("\n\n(Показаны первые 20)" if len(bad) > 20 else "")
-                    + "\n\nСохранить файл несмотря на это?",
-                )
-                if not reply:
-                    return
+            seen = set()
+            
+            # Для стратегий порядок важен, и дубликаты могут быть нужны (хотя редко),
+            # но для доменов порядок не важен.
+            # Оставим логику очистки только для доменов.
+            if self.editor_type == "domains":
+                for ln in lines:
+                    if ln and ln not in seen:
+                        seen.add(ln)
+                        cleaned.append(ln)
+                
+                bad = [ln for ln in cleaned if not DOMAIN_RE.match(ln)]
+                if bad:
+                    if not self.ask_question(
+                        "Некорректные строки",
+                        "Найдены строки, не похожие на домены. Сохранить?"
+                    ):
+                        return
+            else:
+                # Для стратегии сохраняем как есть, просто убираем пустые строки по краям
+                cleaned = [ln for ln in lines if ln]
 
             if self.filepath.exists():
                 ts = time.strftime("%Y%m%d-%H%M%S")
                 bak = self.filepath.with_name(self.filepath.name + f".bak.{ts}")
                 self.filepath.replace(bak)
-                self.filepath.write_text(
-                    "\n".join(cleaned) + ("\n" if cleaned else ""), encoding="utf-8"
-                )
-                self.show_message("Сохранено", f"Файл сохранён. Резервная копия: {bak.name}")
-            else:
-                self.filepath.write_text(
-                    "\n".join(cleaned) + ("\n" if cleaned else ""), encoding="utf-8"
-                )
-                self.show_message("Сохранено", "Файл сохранён.")
+                
+            self.filepath.write_text(
+                "\n".join(cleaned) + ("\n" if cleaned else ""), encoding="utf-8"
+            )
+            self.show_message("Сохранено", "Файл успешно сохранён.")
             self.load_file()
+            
         except Exception as e:
             self.show_message("Ошибка", f"Не удалось сохранить файл:\n{e}", error=True)
 
@@ -215,7 +249,6 @@ class ListEditorDialog(QDialog):
         box.setIcon(QMessageBox.Critical if error else QMessageBox.Information)
         apply_mica_to_dialog(box, alt=None if error else False)
         box.exec()
-
 
     def ask_question(self, title: str, text: str):
         box = QMessageBox(self)

@@ -1,4 +1,5 @@
 from typing import List
+from pathlib import Path
 
 
 def get_script_parameters(game_mode_checked: bool, lists_dir: str, bin_dir: str, mode: str) -> List[str]:
@@ -624,7 +625,24 @@ def get_script_parameters(game_mode_checked: bool, lists_dir: str, bin_dir: str,
     }
 
     params = base_params
-    if mode in mode_params:
+
+    if mode == "Custom":
+        try:
+            custom_file = Path(lists_dir) / "custom_strategy.txt"
+            if custom_file.exists():
+                content = custom_file.read_text(encoding='utf-8')
+                custom_args = content.split()
+                final_args = []
+                for arg in custom_args:
+                    arg = arg.replace("{bin_dir}", bin_dir)
+                    arg = arg.replace("{lists_dir}", lists_dir)
+                    final_args.append(arg)
+                
+                params += final_args
+        except Exception:
+            pass
+
+    elif mode in mode_params:
         params += mode_params[mode]
 
     return params

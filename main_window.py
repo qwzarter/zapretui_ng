@@ -154,10 +154,11 @@ class MainWindow(QMainWindow):
                     "Alt5", "Alt6", "Alt7", "Alt8",
                     "Alt9", "Alt10", "Alt11",
                     "Fake Tls Auto", "Fake Tls Auto Alt", "Fake Tls Auto Alt2",
-                    "Fake Tls Auto Alt3", "Simple fake", "Simple Fake ALT", "Simple Fake ALT2"
+                    "Fake Tls Auto Alt3", "Simple fake", "Simple Fake ALT", "Simple Fake ALT2",
+                    "Custom"    
                 ]
         self.combo.addItems(strategies)
-        self.combo.setCurrentText(self.settings.get("selected_strategy", "Alt7"))
+        self.combo.setCurrentText(self.settings.get("selected_strategy", "Custom"))
         content_layout.addWidget(self.combo)
         apply_mica_visual(self.combo, alt=True)
 
@@ -221,24 +222,38 @@ class MainWindow(QMainWindow):
         game_layout.addStretch()
         game_layout.addWidget(self.game_mode)
 
-        self.edit_lists_btn = QPushButton("Редактировать списки")
+        lists_layout = QHBoxLayout()
+        lists_layout.setSpacing(10)
+
+        self.edit_lists_btn = QPushButton("Списки")
         self.edit_lists_btn.setFont(self.font_default)
         self.edit_lists_btn.setMinimumHeight(40)
-        self.edit_lists_btn.setStyleSheet("""
+        btn_style = """
         QPushButton {
             background-color: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 8px;
             color: #E6E9F0;
-            padding: 8px 16px;
         }
         QPushButton:hover {
             background-color: rgba(255,255,255,0.12);
         }
-        """)
+        """
+        self.edit_lists_btn.setStyleSheet(btn_style)
         self.edit_lists_btn.setCursor(Qt.PointingHandCursor)
         self.edit_lists_btn.clicked.connect(self.open_list_editor)
-        content_layout.addWidget(self.edit_lists_btn)
+        
+        self.edit_custom_btn = QPushButton("Custom")
+        self.edit_custom_btn.setFont(self.font_default)
+        self.edit_custom_btn.setMinimumHeight(40)
+        self.edit_custom_btn.setStyleSheet(btn_style)
+        self.edit_custom_btn.setCursor(Qt.PointingHandCursor)
+        self.edit_custom_btn.clicked.connect(self.open_custom_editor)
+
+        lists_layout.addWidget(self.edit_lists_btn)
+        lists_layout.addWidget(self.edit_custom_btn)
+
+        content_layout.addLayout(lists_layout)
 
         content_layout.addWidget(game_frame)
 
@@ -253,6 +268,7 @@ class MainWindow(QMainWindow):
         self.apply_dark_theme()
         apply_mica_effect(self, alt=False)
         apply_mica_visual(self.edit_lists_btn, alt=False)
+        apply_mica_visual(self.edit_custom_btn, alt=False)
 
         if not self.is_admin():
             box = QMessageBox(self)
@@ -271,6 +287,19 @@ class MainWindow(QMainWindow):
 
         self.log("Интерфейс готов.")
         self.update_ui_state()
+
+    def open_custom_editor(self):
+        try:
+            editor = ListEditorDialog(
+                str(self.lists_dir), 
+                filename="custom_strategy.txt", 
+                editor_type="strategy", 
+                parent=self
+            )
+            apply_mica_to_dialog(editor, alt=True)
+            editor.exec()
+        except Exception as e:
+            self.show_error("Ошибка", f"Не удалось открыть редактор Custom:\n{e}")
 
     def show_error(self, title: str, message: str):
         box = QMessageBox(self)
@@ -484,9 +513,11 @@ class MainWindow(QMainWindow):
     def handle_connect_toggle(self):
         if self.is_connected:
             self.edit_lists_btn.setEnabled(True)
+            self.edit_custom_btn.setEnabled(True)
             self.stop_zapret()
         else:
             self.edit_lists_btn.setEnabled(False)
+            self.edit_custom_btn.setEnabled(False)
             self.start_zapret()
 
     def start_zapret(self):
