@@ -632,13 +632,15 @@ def get_script_parameters(game_mode_checked: bool, lists_dir: str, bin_dir: str,
             if custom_file.exists():
                 content = custom_file.read_text(encoding='utf-8')
                 custom_args = content.split()
+                
                 final_args = []
                 for arg in custom_args:
-                    arg = arg.replace("{bin_dir}", bin_dir)
-                    arg = arg.replace("{lists_dir}", lists_dir)
+                    arg = arg.replace("{bin_dir}", bin_dir) \
+                            .replace("{lists_dir}", lists_dir) \
+                            .replace("{game_filter}", game_filter)
                     final_args.append(arg)
-                
-                params += final_args
+                params = base_params + final_args
+
         except Exception:
             pass
 

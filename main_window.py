@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from toggle_switch import ToggleSwitch
 from worker_thread import WorkerThread
 from list_editor import ListEditorDialog
+from strategy_constructor import StrategyConstructorDialog
 
 
 class MainWindow(QMainWindow):
@@ -290,16 +291,23 @@ class MainWindow(QMainWindow):
 
     def open_custom_editor(self):
         try:
-            editor = ListEditorDialog(
-                str(self.lists_dir), 
-                filename="custom_strategy.txt", 
-                editor_type="strategy", 
+            constructor = StrategyConstructorDialog(
+                lists_dir=str(self.lists_dir),
+                settings=self.settings, 
                 parent=self
             )
-            apply_mica_to_dialog(editor, alt=True)
-            editor.exec()
+            apply_mica_to_dialog(constructor, alt=True)
+            
+            if constructor.exec():
+                new_settings = constructor.get_selected_settings()
+                
+                self.settings.update(new_settings)
+                
+                self.save_settings()
+                self.log("Настройки стратегии обновлены и сохранены.")
+                
         except Exception as e:
-            self.show_error("Ошибка", f"Не удалось открыть редактор Custom:\n{e}")
+            self.show_error("Ошибка", f"Не удалось открыть конструктор:\n{e}")
 
     def show_error(self, title: str, message: str):
         box = QMessageBox(self)

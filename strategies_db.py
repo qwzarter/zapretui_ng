@@ -1,0 +1,370 @@
+YOUTUBE_STRATEGIES = {
+    "Yv01": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--ip-id=zero",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-seqovl=681",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin"
+    ],
+    "Yv02": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-pos=1,sniext+1",
+        "--dpi-desync-split-seqovl=1"
+    ],
+    "Yv03": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-split-pos=2,sld",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=ggpht.com",
+        "--dpi-desync-split-seqovl=620",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fooling=badsum,badseq"
+    ],
+    "Yv04": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=split2",
+        "--dpi-desync-split-seqovl=681",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin"
+    ],
+    "Yv05": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,fakeddisorder",
+        "--dpi-desync-split-pos=10,midsld",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=fonts.google.com",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls-mod=none",
+        "--dpi-desync-fakedsplit-pattern={bin_dir}/tls_clienthello_vk_com.bin",
+        "--dpi-desync-split-seqovl=336",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_gosuslugi_ru.bin",
+        "--dpi-desync-fooling=badseq,badsum",
+        "--dpi-desync-badseq-increment=0"
+    ],
+    "Yv06": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multidisorder",
+        "--dpi-desync-split-pos=7,sld+1",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-autottl 2:2-12"
+    ],
+    "Yv07": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multidisorder",
+        "--dpi-desync-split-pos=1,midsld,endhost-1",
+        "--dpi-desync-repeats=2",
+        "--dpi-desync-fooling=md5sig",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+    ],
+    "Yv08": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-fake-tls=0x00000000",
+        "--dpi-desync-fake-tls=!",
+        "--dpi-desync-split-pos=1,midsld",
+        "--dpi-desync-repeats=2",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com"
+    ],
+    "Yv09": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync-repeats=6",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-badseq-increment=2",
+        "--dpi-desync=multidisorder",
+        "--dpi-desync-split-pos=1,midsld",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin"
+    ],
+    "Yv10": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-pos=1,2",
+        "--dpi-desync-split-seqovl=4",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com"
+    ],
+    "Yv11": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multidisorder",
+        "--dpi-desync-split-pos=2,5,105,host+5,sld-1,endsld-5,endsld"
+    ],
+    "Yv12": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multidisorder",
+        "--dpi-desync-split-pos=1,midsld",
+        "--dpi-desync-repeats=2"
+    ],
+    "Yv13": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multidisorder",
+        "--dpi-desync-split-seqovl=681",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-badseq-increment=10000000",
+        "--dpi-desync-repeats=2",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=fonts.google.com"
+    ],
+    "Yv14": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multidisorder",
+        "--dpi-desync-split-pos=10,midsld",
+        "--dpi-desync-fake-tls=0x00000000",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=fonts.google.com",
+        "--dpi-desync-split-seqovl=336",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fooling=badseq"
+    ],
+    "Yv15": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-split-pos=2,sld",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=ggpht.com",
+        "--dpi-desync-split-seqovl=2108",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fooling=badsum,badseq"
+    ],
+    "Yv16": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-pos=1,sniext+1",
+        "--dpi-desync-split-seqovl=1",
+        "--dpi-desync-fooling=badsum,badseq",
+        "--dpi-desync-badseq-increment=0"
+    ],
+    "Yv17": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fakeddisorder",
+        "--dpi-desync-fooling=md5sig",
+        "--dup=1",
+        "--dup-cutoff=n2",
+        "--dup-fooling=md5sig",
+        "--dpi-desync-split-pos=method+2"
+    ],
+    "Yv18": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--ip-id=zero",
+        "--dpi-desync=fake,hostfakesplit",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=www.google.com",
+        "--dpi-desync-hostfakesplit-mod=host=www.google.com,altorder=1",
+        "--dpi-desync-fooling=ts"
+    ],
+    "Yv19": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=hostfakesplit",
+        "--dpi-desync-hostfakesplit-mod=host=google.com",
+        "--dpi-desync-fooling=ts"
+    ]
+}
+for i in range(1, 20):
+    key = f"Yv{i:02d}"
+    if key not in YOUTUBE_STRATEGIES:
+        YOUTUBE_STRATEGIES[key] = ["--comment=Strategy_Not_Defined"]
+
+GENERAL_STRATEGIES = {
+    "v1": [
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake,multidisorder",
+        "--dpi-desync-split-seqovl=681",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-fooling=badseq",
+        "--dpi-desync-badseq-increment=10000000",
+        "--dpi-desync-repeats=2",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=fonts.google.com",
+        "--new",
+        "--filter-udp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=4",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin"
+    ],
+    "v2": [
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake,fakeddisorder",
+        "--dpi-desync-split-pos=10,midsld",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=fonts.google.com",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls-mod=none",
+        "--dpi-desync-fakedsplit-pattern={bin_dir}/tls_clienthello_vk_com.bin",
+        "--dpi-desync-split-seqovl=336",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_gosuslugi_ru.bin",
+        "--dpi-desync-fooling=badseq,badsum",
+        "--dpi-desync-badseq-increment=0",
+        "--new",
+        "--filter-udp=443",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=4",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin"
+    ],
+    "v3": [
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake,fakeddisorder",
+        "--dpi-desync-split-pos=10,midsld",
+        "--dpi-desync-fake-tls={bin_dir}/t2.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=m.ok.ru",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls-mod=none",
+        "--dpi-desync-fakedsplit-pattern={bin_dir}/tls_clienthello_vk_com.bin",
+        "--dpi-desync-split-seqovl=336",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_gosuslugi_ru.bin",
+        "--dpi-desync-fooling=badseq,badsum",
+        "--dpi-desync-badseq-increment=0",
+        "--new",
+        "--filter-udp=443",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=4",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin"
+    ],
+    "v4": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-split-pos=2,sld",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=google.com",
+        "--dpi-desync-split-seqovl=2108",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fooling=badseq",
+        "--new",
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync-any-protocol=1",
+        "--dpi-desync-cutoff=n5",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-seqovl=582",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/4pda.bin",
+        "--new",
+        "--filter-udp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=4",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin",
+    ],
+    "v5": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--ip-id=zero",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-seqovl=681",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--new",
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake,fakeddisorder",
+        "--dpi-desync-split-pos=10,midsld",
+        "--dpi-desync-fake-tls={bin_dir}/max.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls-mod=none",
+        "--dpi-desync-fakedsplit-pattern={bin_dir}/tls_clienthello_vk_com.bin",
+        "--dpi-desync-fooling=badseq,badsum",
+        "--dpi-desync-badseq-increment=0",
+        "--new",
+        "--filter-udp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake",
+        "--dpi-desync-repeats=6",
+        "--dpi-desync-fake-quic={bin_dir}/quic_initial_www_google_com.bin"
+    ],
+    "v6": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=multisplit",
+        "--dpi-desync-split-pos=1,sniext+1",
+        "--dpi-desync-split-seqovl=1",
+        "--new",
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=hostfakesplit",
+        "--dpi-desync-hostfakesplit-mod=host=rzd.ru",
+        "--dpi-desync-hostfakesplit-midhost=host-2",
+        "--dpi-desync-split-seqovl=726",
+        "--dpi-desync-fooling=badsum,badseq",
+        "--dpi-desync-badseq-increment=0"
+    ],
+    "v7": [
+        "--filter-tcp=443",
+        "--hostlist={lists_dir}/list-google.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-split-pos=2,sld",
+        "--dpi-desync-fake-tls=0x0F0F0F0F",
+        "--dpi-desync-fake-tls={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fake-tls-mod=rnd,dupsid,sni=ggpht.com",
+        "--dpi-desync-split-seqovl=620",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin",
+        "--dpi-desync-fooling=badsum,badseq",
+        "--new",
+        "--filter-tcp=443",
+        "--hostlist-exclude={lists_dir}/list-exclude.txt",
+        "--dpi-desync=fake,multisplit",
+        "--dpi-desync-split-seqovl=654",
+        "--dpi-desync-split-pos=1",
+        "--dpi-desync-fooling=ts",
+        "--dpi-desync-repeats=8",
+        "--dpi-desync-split-seqovl-pattern={bin_dir}/max.bin",
+        "--dpi-desync-fake-tls={bin_dir}/max.bin"
+    ]
+}
+for i in range(1, 8):
+    key = f"v{i}"
+    if key not in GENERAL_STRATEGIES:
+        GENERAL_STRATEGIES[key] = ["--comment=Strategy_Not_Defined"]
+
+DISCORD_STRATEGY = [
+    "--filter-udp=19294-19344,50000-50100",
+    "--filter-l7=discord,stun",
+    "--dpi-desync=fake",
+    "--dpi-desync-repeats=6",
+    "--new",
+    "--filter-tcp=2053,2083,2087,2096,8443",
+    "--hostlist-domains=discord.media",
+    "--dpi-desync=multisplit",
+    "--dpi-desync-split-seqovl=652",
+    "--dpi-desync-split-pos=2",
+    "--dpi-desync-split-seqovl-pattern={bin_dir}/tls_clienthello_www_google_com.bin"
+]
+
+GAME_STRATEGY = [
+    "--filter-udp={game_filter}",
+    "--dpi-desync=fake",
+    "--dpi-desync-cutoff=d2",
+    "--dpi-desync-any-protocol=1",
+    "--dpi-desync-fake-unknown-udp={bin_dir}/quic_initial_www_google_com.bin"
+]
